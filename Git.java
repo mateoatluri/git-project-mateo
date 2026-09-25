@@ -14,6 +14,13 @@ public class Git {
     public static void main(String[] args) {
 
         createGit();
+
+        try {
+            System.out.println(hashFile("Hello.txt"));
+        } catch (IOException e) {
+            System.out.println("SHA-1 is not available " + e);
+        }
+
         
 
     }
@@ -57,4 +64,30 @@ public class Git {
         }
     
     }
+
+    public static String hashFile(String filePath) throws IOException {
+        // TODO (FH-4): read the whole file, digest it, convert the bytes to hex
+
+        Path path = Path.of(filePath);
+        if (!Files.isRegularFile(path)) {
+            throw new IOException("No such file: " + filePath);
+        }
+
+        byte[] fileBytes = Files.readAllBytes(path);
+
+        MessageDigest digest;
+        
+        try {
+            digest = MessageDigest.getInstance("SHA-1");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-1 is not available", e);
+        }
+
+        byte[] hash = digest.digest(fileBytes);
+
+        return HexFormat.of().formatHex(hash);
+
+   
+    }
+
 }
