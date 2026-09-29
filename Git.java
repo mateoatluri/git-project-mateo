@@ -25,6 +25,7 @@ public class Git {
 
             System.out.println("-- Blob creation --");
             repo.createBlob("Hello.txt");
+            repo.addFileEntry("Hello.txt");
 
         } catch (IOException e) {
             System.out.println("SHA-1 is not available " + e);
@@ -159,6 +160,26 @@ public class Git {
         
         FileWriter writeFile = new FileWriter(newFile.toPath().toString());
         writeFile.write(fileContents + "\n");
+        writeFile.close();
+
+    }
+
+    public void addFileEntry(String takenFile) throws IOException{
+
+        String fileHash = hashFile(takenFile);
+
+        BufferedReader fileReader = new BufferedReader(new FileReader(index));
+  
+        
+        FileWriter writeFile = new FileWriter(index);
+
+        if (fileReader.readLine() == null) {
+            writeFile.write(fileHash + " " + takenFile);
+        } else {
+            writeFile.write("\n" + fileHash + " " + takenFile);
+        }
+        
+        fileReader.close();
         writeFile.close();
 
     }
