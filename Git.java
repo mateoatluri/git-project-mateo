@@ -11,42 +11,98 @@ import java.nio.file.Path;
 
 public class Git {
 
+    private File git;
+    private File objects;
+    private File index;
+    private File head;
+
     public static void main(String[] args) {
 
-        createGit();
+        Git repo = new Git();
 
         try {
             System.out.println(hashFile("Hello.txt"));
+
+            System.out.println("-- Blob creation --");
+            repo.createBlob("Hello.txt");
+
         } catch (IOException e) {
             System.out.println("SHA-1 is not available " + e);
         }
 
         
+        
 
     }
 
-    public static void createGit() {
+    public Git() {
+        createGit();
+    }
+
+    /**
+     * @return the objects
+     */
+    public File getObjects() {
+        return objects;
+    }
+
+    /**
+     * @param objects the objects to set
+     */
+    public void setObjects(File objects) {
+        this.objects = objects;
+    }
+
+    /**
+     * @return the index
+     */
+    public File getIndex() {
+        return index;
+    }
+
+    /**
+     * @param index the index to set
+     */
+    public void setIndex(File index) {
+        this.index = index;
+    }
+
+    /**
+     * @return the head
+     */
+    public File getHead() {
+        return head;
+    }
+
+    /**
+     * @param head the head to set
+     */
+    public void setHead(File head) {
+        this.head = head;
+    }
+
+    public void createGit() {
         try {
 
             int counter = 0;
-             File git = new File("git/");
+            git = new File("git/");
             if (!git.mkdir()) {
                 counter++;
             }
    
 
-            File objects = new File(git, "objects/");
+            objects = new File(git, "objects/");
             if (!objects.mkdir()) {
                 counter++;
             }
 
-            File index = new File(git, "index");
+            index = new File(git, "index");
             if (!index.createNewFile()) {
                 counter++;
             }
 
 
-            File head = new File(git, "head");
+            head = new File(git, "HEAD");
             if (!head.createNewFile()) {
                 counter++;
             }
@@ -86,8 +142,25 @@ public class Git {
         byte[] hash = digest.digest(fileBytes);
 
         return HexFormat.of().formatHex(hash);
-
    
+    }
+
+    public void createBlob(String takenFile) throws IOException {
+        
+        String fileHash = hashFile(takenFile);
+
+        File newFile = new File(objects, fileHash);
+        newFile.createNewFile();
+
+
+        BufferedReader fileReader = new BufferedReader(new FileReader(takenFile));
+        String fileContents = fileReader.readLine();
+        fileReader.close();
+        
+        FileWriter writeFile = new FileWriter(newFile.toPath().toString());
+        writeFile.write(fileContents + "\n");
+        writeFile.close();
+
     }
 
 }
