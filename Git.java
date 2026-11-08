@@ -22,30 +22,47 @@ public class Git {
 
         Git repo = new Git();
 
-        repo.createBlob("Hello.txt");
-        repo.addFileEntry("Hello.txt");
-        repo.createBlob("file1.txt");
-        repo.addFileEntry("file1.txt");
+        System.out.println("\n--------testing branches-------\n");
+        //repo.createBlob("testBranch.txt");
+        //repo.addFileEntry("testBranch.txt");
+        //repo.commit("mateo", "this is commit 1");
 
-        repo.createBlob("testerFolder/fileTest.txt");
-        repo.addFileEntry("testerFolder/fileTest.txt");
+        //repo.createBranch("branch1");
+        //repo.checkout("branch1");
+
+        //Files.writeString(Path.of("testBranch.txt"), "I am editing this");
+        //repo.createBlob("testBranch.txt");
+        //repo.addFileEntry("testBranch.txt");
+        //repo.commit("mateo", "this is commit 2222");
+
+        //repo.checkout("branch1");
+
+        // repo.createBlob("Hello.txt");
+        // repo.addFileEntry("Hello.txt");
+        // repo.createBlob("file1.txt");
+        // repo.addFileEntry("file1.txt");
+
+        // repo.createBlob("testerFolder/fileTest.txt");
+        // repo.addFileEntry("testerFolder/fileTest.txt");
 
 
-        String root = repo.createTreeUsingIndex();
-        System.out.println("Root tree: " + root);
+        // String root = repo.createTreeUsingIndex();
+        // System.out.println("Root tree: " + root);
 
-        // testing commit
-        System.out.println("\n" + "------------TESTING COMMIT-----------" + "\n");
-        String testCommit = repo.commit("mateo", "please let this work");
-        System.out.println("First Commit Hash: " + testCommit);
-        System.out.println("First Commit contents:\n" + Files.readString(Path.of("git/objects/" + testCommit)));
+        // // testing commit
+        // System.out.println("\n" + "------------TESTING COMMIT-----------" + "\n");
+        // String testCommit = repo.commit("mateo", "please let this work");
+        // System.out.println("First Commit Hash: " + testCommit);
+        // System.out.println("First Commit contents:\n" + Files.readString(Path.of("git/objects/" + testCommit)));
 
-        String testCommitTwo = repo.commit("mateo", "please let this work again");
-        System.out.println("Second Commit Hash: " + testCommitTwo);
-        System.out.println("Second Commit contents:\n" + Files.readString(Path.of("git/objects/" + testCommitTwo)));
+        // String testCommitTwo = repo.commit("mateo", "please let this work again");
+        // System.out.println("Second Commit Hash: " + testCommitTwo);
+        // System.out.println("Second Commit contents:\n" + Files.readString(Path.of("git/objects/" + testCommitTwo)));
 
-        //System.out.println("-----Checking out----");
-        //checkout("0f0efceac74ca33c736075ac5e9a34b7d5267264");
+        // //System.out.println("-----Checking out----");
+        // //checkout("0f0efceac74ca33c736075ac5e9a34b7d5267264");
+
+        // repo.createBranch("testBranch");
 
 
     }
@@ -118,6 +135,14 @@ public class Git {
             head = new File(git, "HEAD");
             if (!head.createNewFile()) {
                 counter++;
+            }
+
+            File refs = new File(git, "refs");
+            refs.mkdir();
+            File heads = new File(refs, "heads");
+            heads.mkdir();
+            if (head.length() == 0) {
+                Files.writeString(head.toPath(), "ref: refs/heads/main");
             }
 
             if (counter >= 4) {
@@ -347,7 +372,11 @@ public class Git {
         List<String> entries = Files.readAllLines(Path.of(index.getPath()));
         String treeHash = createFinalTree(entries.toArray(new String [0]));
         Path headPath = Path.of(head.getPath());
-        String parentHash = new String(Files.readAllBytes(headPath)).trim();
+        
+
+        // this line below is changed bc commit now has to account for if head isn't just a hash, but if it's a path
+        //String parentHash = new String(Files.readAllBytes(headPath)).trim();
+        String parentHash = getCurrentCommit();
 
         String content = "tree: " + treeHash + "\n";
         if(!parentHash.isEmpty()){
@@ -364,7 +393,24 @@ public class Git {
 
         File commitFile = new File(objects, commitHash);
         Files.write(Path.of(commitFile.getPath()), commitBytes);
-        Files.write(headPath, commitHash.getBytes());
+
+        // need to change what gets written into head to make it like the ref: ___ stuff instead of just a hash
+        //Files.write(headPath, commitHash.getBytes());
+
+        // similar lines below as in getcurrentcommit
+        String headText = new String(Files.readAllBytes(head.toPath())).trim();
+        if (headText.length() >= 5 && headText.substring(0, 5).equals("ref: ")) {
+            /// this condition is when head has smtg like "ref: refs/heads/___" so now the new hash goes into that file in heads instead of in HEAD
+            String branchPath = "git/" + headText.substring(5);
+            Files.write(Path.of(branchPath), commitHash.getBytes());
+
+
+        } else {
+            // else happens if head only stores a hash, then it functions like we previously thougt it would
+            Files.write(headPath, commitHash.getBytes());
+        }
+
+
         return commitHash;
     }
 
@@ -372,27 +418,132 @@ public class Git {
     ///////////////////////
     /// the checkout code below (3 methods below this) I pasted from what I (mateo) wrote in 
     /// git-project-Margaux - mr jloppppez said it was okay :)
+    /// update: now it's not the same bc i had to change it for 5.2
     
-        public static void checkout(String commitHash) throws IOException {
+        public void checkout(String givenContents) throws IOException {
+            //String branchPath = "git/refs/heads/" + givenContents;
+            File branchFile = new File("git/refs/heads", givenContents);
+
+            File hashFile = new File("git/objects", givenContents);
+
+            if (branchFile.exists()) {
+                //the given contents must be a path, not a hash
+                checkoutGivenCommit(givenContents);
+                
+                FileWriter headWriter = new FileWriter(head);
+                headWriter.write("ref: refs/heads/" + givenContents);
+                headWriter.close();
+            } else if (hashFile.exists()) {
+                checkoutGivenCommit(givenContents);
+
+                FileWriter headWriter = new FileWriter(head);
+                headWriter.write(givenContents);
+                headWriter.close();
+            } else {
+                throw new IOException("There isn't a branch or commit hash that matches");
+                //^^change this for extra credit i think
+            }
+        }
+
+        public static String rootTreeHashFromCommitMaterial(String commitMaterial) throws IOException {
+            
+            //String branchPath = "git/refs/heads/" + commitMaterial;
+            File branchFile = new File("git/refs/heads", commitMaterial);
+
+            //File hashFile = new File("git/objects", commitMaterial);
+
+            String line = "";
+
+            if (branchFile.exists()) {
+                    //the given contents must be a path, not a hash
+                BufferedReader branchReader = new BufferedReader(new FileReader("git/refs/heads/" + commitMaterial));
+                String commitHashFromBranch = branchReader.readLine();
+                branchReader.close();
+
+                BufferedReader dirReader = new BufferedReader(new FileReader("git/objects/" + commitHashFromBranch));
+                line = dirReader.readLine();
+                dirReader.close();
+
+            } else {
+                // this means commitMaterial is a hash
+                BufferedReader dirReader = new BufferedReader(new FileReader("git/objects/" + commitMaterial));
+                line = dirReader.readLine();
+                dirReader.close();
+            }
+
+            return line;
+            
+        }
+    
+        public void checkoutGivenCommit(String commitMaterial) throws IOException {
         // implement here
 
+        String rootHashLine = rootTreeHashFromCommitMaterial(commitMaterial);
+
+        int firstSpace = rootHashLine.indexOf(" ");
+        String rootHash = rootHashLine.substring(firstSpace + 1);
+
+        //gets the root hash if the commitMaterial is in a branch or if it's just a hash (head not in branch)
         
-        BufferedReader dirReader = new BufferedReader(new FileReader("git/objects/" + commitHash));
-        String line = dirReader.readLine();
-        dirReader.close();
 
-        int firstSpace = line.indexOf(" ");
-        String rootHash = line.substring(firstSpace + 1);
+        //next, need to checkout to receive all the files back
+        //but also need to update the index, which I didn't previously do
+        // store old index and wipe so new ones can be there
+        // update new files
+        // update index
+        // remove unwanted files
 
+
+        List<String> oldIndexLines = Files.readAllLines(index.toPath());
+        //ArrayList<String> oldIndexLines = new ArrayList<String>(listOfOldIndexLines);
+        FileWriter indexWiper = new FileWriter(index);
+        indexWiper.write("");
+        indexWiper.close();
+        
         checkoutRecursive("tree", rootHash, ".");
+
+        List<String> newIndexPaths = new ArrayList<String>();
+        List<String> newIndexLines = Files.readAllLines(index.toPath());
+
+        //add the new paths into a list, so then I can make a new loop to compare which old paths are not in the new paths loop and delete them
+        for (int i = 0; i < newIndexLines.size(); i++) {
+            String currentLine = newIndexLines.get(i);
+            int indexOfSpace = currentLine.indexOf(" ");
+            String currentPath = currentLine.substring(indexOfSpace + 1);
+            newIndexPaths.add(currentPath);
+        }
+
+        for (int i = 0; i < oldIndexLines.size(); i++) {
+            String currentOldLine = oldIndexLines.get(i);
+            int indexOfOldSpace = currentOldLine.indexOf(" ");
+            String currentOldPath = currentOldLine.substring(indexOfOldSpace + 1);
+
+            if (!(newIndexPaths.contains(currentOldPath))) {
+
+                Path oldFilePath = Path.of(currentOldPath);
+
+                if (Files.exists(oldFilePath)) {
+                    Files.delete(oldFilePath);
+                }
+            }
+        }
+
+
+        
+
+
         
 
     }
 
-    public static void checkoutRecursive(String objectType, String objectHash, String dirPath) throws IOException {
+    public void checkoutRecursive(String objectType, String objectHash, String dirPath) throws IOException {
         //base case
         if (objectType.equals("blob")) {
             createFile(objectHash, dirPath);
+
+            String blobSubPath = dirPath.substring(2);
+            addFileEntry(blobSubPath);
+
             return;
         }
 
@@ -435,6 +586,52 @@ public class Git {
 
         return dirPath;
         
+    }
+
+    public String getCurrentCommit() throws IOException {
+        // took this line from what somebody wrote in commit method
+        String headText = new String(Files.readAllBytes(head.toPath())).trim();
+
+
+        if (headText.length() >= 5 && headText.substring(0, 5).equals("ref: ")) {
+            // not hash, some kinda branch
+            String branchPath = headText.substring(5);
+            File branchFile = new File(git, branchPath);
+            if (branchFile.exists()) {
+                String branchText = new String(Files.readAllBytes(branchFile.toPath())).trim();
+                return branchText;
+
+                //this is the commit that is inside of this file branch file in refs/heads/xx where xx = the name of the branch
+            } else {
+                return "";
+                //no commits yet
+            }
+
+        }
+
+        return headText;
+        //^^ hash, so detached branch
+    }
+
+    public String createBranch(String branchName) throws IOException {
+        File branchFile = new File("git/refs/heads", branchName);
+
+        if (branchFile.exists()) {
+            throw new IOException("Branch already exists");
+        } else {
+            String currentCommit = getCurrentCommit();
+
+            if (currentCommit.equals("")) {
+                throw new IOException("No commits currently, nothing to branch from");
+            }
+
+
+            FileWriter branchWriter = new FileWriter(branchFile);
+            branchWriter.write(currentCommit);
+            branchWriter.close();
+
+            return "git/refs/heads/" + branchName;
+        }
     }
 
 }

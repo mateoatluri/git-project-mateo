@@ -75,5 +75,10 @@ public class GitWrapper {
      */
     public static void checkout(String commitHash) {
         // implement here
+        try {
+            repo.checkout(commitHash);;
+        } catch (Exception e) {
+            throw new IllegalStateException();
+        }
     }
 }
