@@ -22,99 +22,31 @@ public class Git {
 
         Git repo = new Git();
 
-        String[] workingList;
-        try {
-            String firstFile = "Hello.txt";
-            if (args.length > 0) {
-                firstFile = args[0];
-            }
-            String fileHash = hashFile(firstFile);
-            System.out.println(fileHash);
+        repo.createBlob("Hello.txt");
+        repo.addFileEntry("Hello.txt");
+        repo.createBlob("file1.txt");
+        repo.addFileEntry("file1.txt");
 
-            System.out.println("-- Blob creation --");
-            if (args.length == 0) {
-                repo.createBlob("Hello.txt");
-                repo.addFileEntry("Hello.txt");
-                repo.createBlob("file1.txt");
-                repo.addFileEntry("file1.txt");
-                repo.addFileEntry("Hello.txt");
-                repo.addFileEntry("Hello.txt");
-            } else {
-                for (String filePath : args) {
-                    repo.createBlob(filePath);
-                    repo.addFileEntry(filePath);
-                }
-            }
+        repo.createBlob("testerFolder/fileTest.txt");
+        repo.addFileEntry("testerFolder/fileTest.txt");
 
-            File blob = new File(repo.getObjects(), fileHash);
-            boolean match = blob.isFile() && hashFile(blob.getPath()).equals(fileHash);
-            System.out.println("Blob matches OG: " + match);
 
-            Path indexPath = Path.of(repo.getIndex().getPath());
-            List<String> entries = Files.readAllLines(indexPath);
-            int matches = 0;
-            for (String entry : entries) {
-                int firstSpace = entry.indexOf(' ');
-                if (entry.substring(firstSpace + 1).equals(firstFile)) {
-                    matches++;
-                }
-            }
-            System.out
-                    .println("correct index entry: " + (matches == 1 && entries.contains(fileHash + " " + firstFile)));
-            workingList = redoList(entries.toArray(new String[0]));
+        String root = repo.createTreeUsingIndex();
+        System.out.println("Root tree: " + root);
 
-        } catch (IOException e) {
-            System.out.println("SHA-1 is not available " + e);
-            return;
-        }
+        // testing commit
+        System.out.println("\n" + "------------TESTING COMMIT-----------" + "\n");
+        String testCommit = repo.commit("mateo", "please let this work");
+        System.out.println("First Commit Hash: " + testCommit);
+        System.out.println("First Commit contents:\n" + Files.readString(Path.of("git/objects/" + testCommit)));
 
-        System.out.println("-- Tree creation --");
-        String first = "";
-        try {
-            first = repo.createTree(workingList, "");
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        String second = "";
-        try {
-            second = repo.createTree(workingList, "");
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        String testCommitTwo = repo.commit("mateo", "please let this work again");
+        System.out.println("Second Commit Hash: " + testCommitTwo);
+        System.out.println("Second Commit contents:\n" + Files.readString(Path.of("git/objects/" + testCommitTwo)));
 
-        System.out.println(first);
-        System.out.println("Same tree hash twice: " + (!first.isEmpty() && first.equals(second)));
+        //System.out.println("-----Checking out----");
+        //checkout("0f0efceac74ca33c736075ac5e9a34b7d5267264");
 
-        System.out.println("-- Step 4 test --");
-
-        try {
-            String rootHash = repo.createFinalTree(workingList);
-            System.out.println("Root hash: " + rootHash);
-            System.out.println("Hash is 40 chars: " + (rootHash.length() == 40));
-
-            File rootFile = new File(repo.getObjects(), rootHash);
-            System.out.println("Root tree file exists: " + rootFile.exists());
-
-            BufferedReader reader = new BufferedReader(new FileReader(rootFile));
-            String line = reader.readLine();
-            while (line != null) {
-                System.out.println(" " + line);
-                line = reader.readLine();
-            }
-            reader.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("Test commit");
-        String firstCommit = repo.commit("jake", "first test");
-        String secondCommit = repo.commit("jake", "second test");
-        Path commitFile = Path.of("git", "objects", secondCommit);
-        String head = new String(Files.readAllBytes(Path.of("git", "HEAD")));
-        System.out.println("is parent correct: " + Files.readAllLines(commitFile).contains("parent: " + firstCommit));
-        System.out.println("is head correct: " + head.equals(secondCommit));
 
     }
 
@@ -403,6 +335,14 @@ public class Git {
         return createTree(workingList, "");
     }
 
+    public String createTreeUsingIndex() throws IOException {
+        List<String> indexLines = Files.readAllLines(index.toPath());
+        String[] workingList = new String[indexLines.size()];
+        workingList = indexLines.toArray(workingList);
+        return createFinalTree(workingList);
+
+    }
+
     public String commit(String author, String message) throws IOException, NoSuchAlgorithmException{
         List<String> entries = Files.readAllLines(Path.of(index.getPath()));
         String treeHash = createFinalTree(entries.toArray(new String [0]));
@@ -426,6 +366,75 @@ public class Git {
         Files.write(Path.of(commitFile.getPath()), commitBytes);
         Files.write(headPath, commitHash.getBytes());
         return commitHash;
+    }
+
+
+    ///////////////////////
+    /// the checkout code below (3 methods below this) I pasted from what I (mateo) wrote in 
+    /// git-project-Margaux - mr jloppppez said it was okay :)
+    
+        public static void checkout(String commitHash) throws IOException {
+        // implement here
+
+        
+        BufferedReader dirReader = new BufferedReader(new FileReader("git/objects/" + commitHash));
+        String line = dirReader.readLine();
+        dirReader.close();
+
+        int firstSpace = line.indexOf(" ");
+        String rootHash = line.substring(firstSpace + 1);
+
+        checkoutRecursive("tree", rootHash, ".");
+        
+
+    }
+
+    public static void checkoutRecursive(String objectType, String objectHash, String dirPath) throws IOException {
+        //base case
+        if (objectType.equals("blob")) {
+            createFile(objectHash, dirPath);
+            return;
+        }
+
+        // it must be tree
+        File folder = new File(dirPath);
+        folder.mkdir();
+
+        //make array list w/ all the contents
+        ArrayList<String> dirChildren = new ArrayList<String>();
+        BufferedReader dirReader = new BufferedReader(new FileReader("git/objects/" + objectHash));
+        String line;
+
+        while ((line = dirReader.readLine()) != null) {
+                dirChildren.add(line);
+            }
+        dirReader.close();
+
+        for (int i = 0; i < dirChildren.size(); i++) {
+            int firstSpace = dirChildren.get(i).indexOf(" ");
+            int lastSpace = dirChildren.get(i).lastIndexOf(" ");
+    
+            String childType = dirChildren.get(i).substring(0, firstSpace);
+            String childHash = dirChildren.get(i).split(" ")[1];
+            String childName = dirChildren.get(i).substring(lastSpace + 1);
+            String childPath = dirPath + "/" + childName;
+
+            checkoutRecursive(childType, childHash, childPath);
+        }
+
+    }
+
+    public static String createFile(String dirHash, String dirPath) throws IOException {
+
+        //copied code from createBlob, but make it so it now creates a real file, not a blob in objects
+        Path blobPath = Path.of("git/objects", dirHash);
+        byte[] blobContents = Files.readAllBytes(blobPath);
+        Path childPath = Path.of(dirPath);
+
+        Files.write(childPath, blobContents);
+
+        return dirPath;
+        
     }
 
 }
