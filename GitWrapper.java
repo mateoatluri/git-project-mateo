@@ -62,7 +62,7 @@ public class GitWrapper {
         try {
             return repo.commit(author, message);
         } catch (Exception e) {
-            throw new IllegalStateException();
+            throw new IOException();
         }
     }
 
@@ -73,12 +73,22 @@ public class GitWrapper {
      *
      * @param commitHash The SHA-1 hash of the commit to check out.
      */
-    public static void checkout(String commitHash) {
+    public static void checkout(String commitHash) throws IOException {
         // implement here
         try {
             repo.checkout(commitHash);;
         } catch (Exception e) {
-            throw new IllegalStateException();
+            throw new IOException();
         }
+    }
+
+    public static String branch(String branchName) throws IOException {
+        
+        try {
+            return repo.createBranch(branchName);
+        } catch (Exception e) {
+            throw new IOException();
+        }
+        
     }
 }

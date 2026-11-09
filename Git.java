@@ -23,9 +23,9 @@ public class Git {
         Git repo = new Git();
 
         System.out.println("\n--------testing branches-------\n");
-        //repo.createBlob("testBranch.txt");
-        //repo.addFileEntry("testBranch.txt");
-        //repo.commit("mateo", "this is commit 1");
+        repo.createBlob("testBranch.txt");
+        repo.addFileEntry("testBranch.txt");
+        repo.commit("mateo", "this is commit 1");
 
         //repo.createBranch("branch1");
         //repo.checkout("branch1");
@@ -36,6 +36,8 @@ public class Git {
         //repo.commit("mateo", "this is commit 2222");
 
         //repo.checkout("branch1");
+
+        //////////////////////////////////
 
         // repo.createBlob("Hello.txt");
         // repo.addFileEntry("Hello.txt");
@@ -482,10 +484,10 @@ public class Git {
 
         int firstSpace = rootHashLine.indexOf(" ");
         String rootHash = rootHashLine.substring(firstSpace + 1);
-
+        
         //gets the root hash if the commitMaterial is in a branch or if it's just a hash (head not in branch)
         
-
+        
         //next, need to checkout to receive all the files back
         //but also need to update the index, which I didn't previously do
         // store old index and wipe so new ones can be there
